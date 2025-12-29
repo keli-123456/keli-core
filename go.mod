@@ -15,7 +15,7 @@ require (
 	github.com/refraction-networking/utls v1.8.1
 	github.com/sagernet/sing v0.8.0-beta.8
 	github.com/sagernet/sing-quic v0.6.0-beta.7
-	github.com/sagernet/sing-shadowsocks v0.2.7
+	github.com/sagernet/sing-shadowsocks v0.2.9
 	github.com/seiflotfy/cuckoofilter v0.0.0-20240715131351-a2f2c23f1771
 	github.com/stretchr/testify v1.11.1
 	github.com/v2fly/ss-bloomring v0.0.0-20210312155135-28617310f63e
