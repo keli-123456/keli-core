@@ -367,6 +367,10 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 			if w.UDPOverride.Port != 0 {
 				b.UDP.Port = w.UDPOverride.Port
 			}
+			if b.UDP.Address == nil {
+				b.Release()
+				continue
+			}
 			if b.UDP.Address.Family().IsDomain() {
 				if ip, ok := w.ResolvedUDPAddr.Load(b.UDP.Address.Domain()); ok {
 					b.UDP.Address = ip
