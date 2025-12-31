@@ -6,12 +6,20 @@ import (
 	B "github.com/sagernet/sing/common/buf"
 	"github.com/sagernet/sing/common/bufio"
 	M "github.com/sagernet/sing/common/metadata"
+	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/transport"
 )
 
 func CopyPacketConn(ctx context.Context, inboundConn net.Conn, link *transport.Link, destination net.Destination, serverConn net.PacketConn) error {
+	// Ensure dispatcher pipes are always released; otherwise long-running services (QUIC-based, etc.)
+	// may keep goroutines/buffers alive when the peer connection is gone.
+	if link != nil {
+		defer common.Interrupt(link.Reader)
+		defer common.Close(link.Writer)
+	}
+
 	conn := &PacketConnWrapper{
 		Reader: link.Reader,
 		Writer: link.Writer,
@@ -78,5 +86,7 @@ func (w *PacketConnWrapper) WritePacket(buffer *B.Buffer, destination M.Socksadd
 
 func (w *PacketConnWrapper) Close() error {
 	buf.ReleaseMulti(w.cached)
+	_ = common.Close(w.Writer)
+	_ = common.Interrupt(w.Reader)
 	return nil
 }

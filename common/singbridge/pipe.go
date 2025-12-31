@@ -6,11 +6,19 @@ import (
 	"net"
 
 	"github.com/sagernet/sing/common/bufio"
+	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/transport"
 )
 
 func CopyConn(ctx context.Context, inboundConn net.Conn, link *transport.Link, serverConn net.Conn) error {
+	// Ensure dispatcher pipes are always released; otherwise long-running services (QUIC-based, etc.)
+	// may keep goroutines/buffers alive when the peer connection is gone.
+	if link != nil {
+		defer common.Interrupt(link.Reader)
+		defer common.Close(link.Writer)
+	}
+
 	conn := &PipeConnWrapper{
 		W:    link.Writer,
 		Conn: inboundConn,
