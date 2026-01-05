@@ -64,8 +64,8 @@ github.com/sagernet/quic-go v0.58.0-sing-box-mod.1 h1:E9yZrU0ZxSiW5RrGUnFZeI02EI
 github.com/sagernet/quic-go v0.58.0-sing-box-mod.1/go.mod h1:OqILvS182CyOol5zNNo6bguvOGgXzV459+chpRaUC+4=
 github.com/sagernet/sing v0.8.0-beta.8 h1:hUo0wZ2HGTieV1flEIai96HFhF34mMHVnduRqJHQvxg=
 github.com/sagernet/sing v0.8.0-beta.8/go.mod h1:ARkL0gM13/Iv5VCZmci/NuoOlePoIsW0m7BWfln/Hak=
-github.com/sagernet/sing-quic v0.6.0-beta.7 h1:Sh6KltQ6nB69S9ZdDKs5oARqkyY99gOaHe1JPxNV7ag=
-github.com/sagernet/sing-quic v0.6.0-beta.7/go.mod h1:0NodMFjlAvfLp87Enpx46fQPrGRvmbUsmy5hRLzomtM=
+github.com/sagernet/sing-quic v0.6.0-beta.8 h1:Y0P8WTqWpfg80rLFsDfF22QumM+HEAjRQ2o+8Dv+vDs=
+github.com/sagernet/sing-quic v0.6.0-beta.8/go.mod h1:Y3YVjPutLHLQvYjGtUFH+w8YmM4MTd19NDzxLZGNGIs=
 github.com/sagernet/sing-shadowsocks v0.2.7 h1:zaopR1tbHEw5Nk6FAkM05wCslV6ahVegEZaKMv9ipx8=
 github.com/sagernet/sing-shadowsocks v0.2.7/go.mod h1:0rIKJZBR65Qi0zwdKezt4s57y/Tl1ofkaq6NlkzVuyE=
 github.com/seiflotfy/cuckoofilter v0.0.0-20240715131351-a2f2c23f1771 h1:emzAzMZ1L9iaKCTxdy3Em8Wv4ChIAGnfiz18Cda70g4=
