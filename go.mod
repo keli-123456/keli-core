@@ -13,8 +13,8 @@ require (
 	github.com/pires/go-proxyproto v0.8.1
 	github.com/quic-go/quic-go v0.58.0
 	github.com/refraction-networking/utls v1.8.1
-	github.com/sagernet/sing v0.8.0-beta.8
-	github.com/sagernet/sing-quic v0.6.0-beta.7
+	github.com/sagernet/sing v0.8.0-beta.10
+	github.com/sagernet/sing-quic v0.6.0-beta.10
 	github.com/sagernet/sing-shadowsocks v0.2.7
 	github.com/seiflotfy/cuckoofilter v0.0.0-20240715131351-a2f2c23f1771
 	github.com/stretchr/testify v1.11.1
@@ -47,7 +47,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
-	github.com/sagernet/quic-go v0.58.0-sing-box-mod.1 // indirect
+	github.com/sagernet/quic-go v0.59.0-sing-box-mod.2 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
 	golang.org/x/exp v0.0.0-20250911091902-df9299821621 // indirect
 	golang.org/x/mod v0.30.0 // indirect
