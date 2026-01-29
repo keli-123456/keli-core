@@ -4,6 +4,9 @@ package session // import "github.com/xtls/xray-core/common/session"
 import (
 	"context"
 	"math/rand"
+	"sync"
+	"sync/atomic"
+	"unsafe"
 
 	c "github.com/xtls/xray-core/common/ctx"
 	"github.com/xtls/xray-core/common/errors"
@@ -97,6 +100,8 @@ type Content struct {
 
 	// SkipDNSResolve is set from DNS module. the DOH remote server maybe a domain name, this prevents cycle resolving dead loop
 	SkipDNSResolve bool
+
+	attributesMu unsafe.Pointer // *sync.RWMutex
 }
 
 // Sockopt is the settings for socket connection.
@@ -107,6 +112,12 @@ type Sockopt struct {
 
 // SetAttribute attaches additional string attributes to content.
 func (c *Content) SetAttribute(name string, value string) {
+	if c == nil {
+		return
+	}
+	mu := c.getAttributesMu()
+	mu.Lock()
+	defer mu.Unlock()
 	if c.Attributes == nil {
 		c.Attributes = make(map[string]string)
 	}
@@ -115,8 +126,55 @@ func (c *Content) SetAttribute(name string, value string) {
 
 // Attribute retrieves additional string attributes from content.
 func (c *Content) Attribute(name string) string {
+	if c == nil {
+		return ""
+	}
+	mu := c.getAttributesMu()
+	mu.RLock()
+	defer mu.RUnlock()
 	if c.Attributes == nil {
 		return ""
 	}
 	return c.Attributes[name]
+}
+
+// HasAttributes reports whether any attribute exists.
+func (c *Content) HasAttributes() bool {
+	if c == nil {
+		return false
+	}
+	mu := c.getAttributesMu()
+	mu.RLock()
+	defer mu.RUnlock()
+	return len(c.Attributes) != 0
+}
+
+// AttributesSnapshot returns a copy of attributes for safe concurrent reads.
+func (c *Content) AttributesSnapshot() map[string]string {
+	if c == nil {
+		return nil
+	}
+	mu := c.getAttributesMu()
+	mu.RLock()
+	defer mu.RUnlock()
+
+	if len(c.Attributes) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(c.Attributes))
+	for k, v := range c.Attributes {
+		out[k] = v
+	}
+	return out
+}
+
+func (c *Content) getAttributesMu() *sync.RWMutex {
+	if p := atomic.LoadPointer(&c.attributesMu); p != nil {
+		return (*sync.RWMutex)(p)
+	}
+	mu := new(sync.RWMutex)
+	if atomic.CompareAndSwapPointer(&c.attributesMu, nil, unsafe.Pointer(mu)) {
+		return mu
+	}
+	return (*sync.RWMutex)(atomic.LoadPointer(&c.attributesMu))
 }

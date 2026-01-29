@@ -141,7 +141,7 @@ func (ctx *Context) GetAttributes() map[string]string {
 	if ctx.Content == nil {
 		return nil
 	}
-	return ctx.Content.Attributes
+	return ctx.Content.AttributesSnapshot()
 }
 
 // GetSkipDNSResolve implements routing.Context.
