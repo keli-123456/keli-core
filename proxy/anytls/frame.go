@@ -8,29 +8,33 @@ import (
 	"github.com/xtls/xray-core/common/buf"
 )
 
-const (
-	cmdSettings            = 4
-	cmdSYN                 = 1
-	cmdSYNACK              = 7
-	cmdPSH                 = 2
-	cmdFIN                 = 3
-	cmdWaste               = 0
-	cmdHeartRequest        = 8
-	cmdHeartResponse       = 9
-	cmdServerSettings      = 10
-	cmdUpdatePaddingScheme = 6
-	cmdAlert               = 5
+const ( // cmds
+	cmdWaste               = 0  // Paddings
+	cmdSYN                 = 1  // stream open
+	cmdPSH                 = 2  // data push
+	cmdFIN                 = 3  // stream close, a.k.a EOF mark
+	cmdSettings            = 4  // Settings (Client send to Server)
+	cmdAlert               = 5  // Alert
+	cmdUpdatePaddingScheme = 6  // update padding scheme
+	cmdSYNACK              = 7  // Server reports to the client that the stream has been opened
+	cmdHeartRequest        = 8  // Keep alive command
+	cmdHeartResponse       = 9  // Keep alive command
+	cmdServerSettings      = 10 // Settings (Server send to client)
 )
 
 // frameReader 帧读取器，保持 header buffer 复用以减少分配
 type frameReader struct {
 	br     *buf.BufferedReader
 	ctx    context.Context
-	header [7]byte // cmd(1) + sid(4) + length(2)
+	header [7]byte     // cmd(1) + sid(4) + length(2)
+	buffer *buf.Buffer // 复用的数据缓冲区，避免频繁分配
 }
 
 func newFrameReader(br *buf.BufferedReader, ctx context.Context) *frameReader {
-	return &frameReader{br: br, ctx: ctx}
+	return &frameReader{
+		br:  br,
+		ctx: ctx,
+	}
 }
 
 // read 读取一个完整帧，返回 cmd, sid, data
