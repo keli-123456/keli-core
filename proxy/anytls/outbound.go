@@ -148,6 +148,22 @@ func (o *Outbound) Process(ctx context.Context, link *transport.Link, dialer int
 		return fw.flush()
 	}
 
+	sendData := func(sid uint32, mb buf.MultiBuffer) error {
+		writeMu.Lock()
+		defer writeMu.Unlock()
+
+		for !mb.IsEmpty() {
+			var chunk buf.MultiBuffer
+			mb, chunk = buf.SplitSize(mb, maxFramePayload)
+			if err := fw.writeMultiBuffer(cmdPSH, sid, chunk); err != nil {
+				buf.ReleaseMulti(mb)
+				return err
+			}
+		}
+
+		return fw.flush()
+	}
+
 	// buffered frame writer - 用于合并 cmdSettings + cmdSYN
 	writeFrameBuffered := func(cmd byte, sid uint32, data []byte) {
 		// 计算帧大小: 1(cmd) + 4(sid) + 2(len) + data
@@ -271,26 +287,18 @@ func (o *Outbound) Process(ctx context.Context, link *transport.Link, dialer int
 			case cmdPSH:
 				var data buf.MultiBuffer
 				if length > 0 {
-					var b *buf.Buffer
-					if length <= buf.Size {
-						b = buf.New()
-					} else {
-						b = buf.NewWithSize(int32(length))
-					}
-					p := b.Extend(int32(length))
-					if _, err := io.ReadFull(br, p); err != nil {
-						b.Release()
+					var err error
+					data, err = readMultiBufferExact(br, length)
+					if err != nil {
 						return
 					}
-					data = buf.MultiBuffer{b}
 				}
 				if !data.IsEmpty() {
 					_ = link.Writer.WriteMultiBuffer(data)
 				}
 			case cmdFIN:
 				if length > 0 {
-					discard := make([]byte, length)
-					if _, err := io.ReadFull(br, discard); err != nil {
+					if err := discardBytes(br, length); err != nil {
 						return
 					}
 				}
@@ -316,16 +324,14 @@ func (o *Outbound) Process(ctx context.Context, link *transport.Link, dialer int
 				}
 			case cmdWaste:
 				if length > 0 {
-					discard := make([]byte, length)
-					if _, err := io.ReadFull(br, discard); err != nil {
+					if err := discardBytes(br, length); err != nil {
 						return
 					}
 				}
 				continue
 			case cmdServerSettings:
 				if length > 0 {
-					discard := make([]byte, length)
-					if _, err := io.ReadFull(br, discard); err != nil {
+					if err := discardBytes(br, length); err != nil {
 						return
 					}
 				}
@@ -345,16 +351,14 @@ func (o *Outbound) Process(ctx context.Context, link *transport.Link, dialer int
 				}
 			case cmdHeartRequest:
 				if length > 0 {
-					discard := make([]byte, length)
-					if _, err := io.ReadFull(br, discard); err != nil {
+					if err := discardBytes(br, length); err != nil {
 						return
 					}
 				}
 				_ = sendFrame(cmdHeartResponse, 0, nil)
 			default:
 				if length > 0 {
-					discard := make([]byte, length)
-					if _, err := io.ReadFull(br, discard); err != nil {
+					if err := discardBytes(br, length); err != nil {
 						return
 					}
 				}
@@ -445,9 +449,8 @@ func (o *Outbound) Process(ctx context.Context, link *transport.Link, dialer int
 	// 注意：包1 已经在 cmdSettings+cmdSYN 中处理，这里从包2开始
 	go func(sid uint32) {
 		for {
-			b := make([]byte, 8192)
-			n, err := lbr.Read(b)
-			if n > 0 {
+			mb, err := lbr.ReadMultiBuffer()
+			if !mb.IsEmpty() {
 				// 获取当前包序号
 				pktMu.Lock()
 				packetIndex := int(pktCounter)
@@ -459,14 +462,16 @@ func (o *Outbound) Process(ctx context.Context, link *transport.Link, dialer int
 				scheme := paddingScheme
 				schemeMu.RUnlock()
 
-				data := b[:n]
-
 				// 如果有 padding scheme 且未超过 stop 限制，应用规则
 				if scheme != nil && uint32(packetIndex) < scheme.stop {
 					// 使用官方简洁 API 生成分片大小
 					pktSizes := scheme.GenerateRecordPayloadSizes(uint32(packetIndex))
 
 					if len(pktSizes) > 0 {
+						data := make([]byte, mb.Len())
+						mb.Copy(data)
+						buf.ReleaseMulti(mb)
+
 						// 按照生成的 sizes 发送数据
 						offset := 0
 						for _, size := range pktSizes {
@@ -524,8 +529,8 @@ func (o *Outbound) Process(ctx context.Context, link *transport.Link, dialer int
 					}
 				}
 
-				// 没有 padding scheme 或超出 stop 范围，直接发送原始数据
-				if werr := sendFrame(cmdPSH, sid, data); werr != nil {
+				// 没有 padding scheme 或超出 stop 范围，按批次发送并只 flush 一次
+				if werr := sendData(sid, mb); werr != nil {
 					_ = sendFrame(cmdFIN, sid, nil)
 					return
 				}

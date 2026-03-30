@@ -98,11 +98,27 @@ func (s *Server) Process(ctx context.Context, network xnet.Network, conn stat.Co
 		return fw.flush()
 	}
 
+	sendData := func(sid uint32, mb buf.MultiBuffer) error {
+		writeMu.Lock()
+		defer writeMu.Unlock()
+
+		for !mb.IsEmpty() {
+			var chunk buf.MultiBuffer
+			mb, chunk = buf.SplitSize(mb, maxFramePayload)
+			if err := fw.writeMultiBuffer(cmdPSH, sid, chunk); err != nil {
+				buf.ReleaseMulti(mb)
+				return err
+			}
+		}
+
+		return fw.flush()
+	}
+
 	head := [7]byte{}
 
 	// auth header: 32B sha256(password) + 2B padlen
-	h := make([]byte, 34)
-	if _, err := io.ReadFull(br, h); err != nil {
+	var h [34]byte
+	if _, err := io.ReadFull(br, h[:]); err != nil {
 		return errors.New("anytls: read auth").Base(err)
 	}
 
@@ -116,7 +132,7 @@ func (s *Server) Process(ctx context.Context, network xnet.Network, conn stat.Co
 
 	padlen := binary.BigEndian.Uint16(h[32:34])
 	if padlen > 0 {
-		if _, err := io.ReadFull(br, make([]byte, padlen)); err != nil {
+		if err := discardBytes(br, int(padlen)); err != nil {
 			return errors.New("anytls: read padding0").Base(err)
 		}
 	}
@@ -143,8 +159,7 @@ func (s *Server) Process(ctx context.Context, network xnet.Network, conn stat.Co
 		switch cmd {
 		case cmdWaste:
 			if length > 0 {
-				discard := make([]byte, length)
-				if _, err := io.ReadFull(br, discard); err != nil {
+				if err := discardBytes(br, length); err != nil {
 					return err
 				}
 			}
@@ -197,8 +212,7 @@ func (s *Server) Process(ctx context.Context, network xnet.Network, conn stat.Co
 			handshakeDone = true
 		case cmdHeartRequest:
 			if length > 0 {
-				discard := make([]byte, length)
-				if _, err := io.ReadFull(br, discard); err != nil {
+				if err := discardBytes(br, length); err != nil {
 					return err
 				}
 			}
@@ -207,8 +221,7 @@ func (s *Server) Process(ctx context.Context, network xnet.Network, conn stat.Co
 			}
 		case cmdSYN:
 			if length > 0 {
-				discard := make([]byte, length)
-				if _, err := io.ReadFull(br, discard); err != nil {
+				if err := discardBytes(br, length); err != nil {
 					return err
 				}
 				errors.LogWarning(ctx, "anytls: unexpected data in SYN, streamId=", sid)
@@ -219,26 +232,18 @@ func (s *Server) Process(ctx context.Context, network xnet.Network, conn stat.Co
 		case cmdPSH:
 			var body buf.MultiBuffer
 			if length > 0 {
-				var b *buf.Buffer
-				if length > buf.Size {
-					b = buf.NewWithSize(int32(length))
-				} else {
-					b = buf.New()
-				}
-				p := b.Extend(int32(length))
-				if _, err := io.ReadFull(br, p); err != nil {
-					b.Release()
+				var err error
+				body, err = readMultiBufferExact(br, length)
+				if err != nil {
 					return err
 				}
-				body = buf.MultiBuffer{b}
 			}
-			if err := s.handlePSH(ctx, sid, body, &streams, &smu, dispatcher, sendFrame); err != nil {
+			if err := s.handlePSH(ctx, sid, body, &streams, &smu, dispatcher, sendFrame, sendData); err != nil {
 				return err
 			}
 		case cmdFIN:
 			if length > 0 {
-				discard := make([]byte, length)
-				if _, err := io.ReadFull(br, discard); err != nil {
+				if err := discardBytes(br, length); err != nil {
 					return err
 				}
 			}
@@ -251,8 +256,7 @@ func (s *Server) Process(ctx context.Context, network xnet.Network, conn stat.Co
 			}
 		default:
 			if length > 0 {
-				discard := make([]byte, length)
-				if _, err := io.ReadFull(br, discard); err != nil {
+				if err := discardBytes(br, length); err != nil {
 					return err
 				}
 			}
