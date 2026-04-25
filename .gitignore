@@ -11,6 +11,10 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+# Local Go caches
+.gocache/
+.gomodcache/
+
 # macOS specific files
 .DS_Store
 

@@ -2,6 +2,16 @@
 
 [Project X](https://github.com/XTLS) originates from XTLS protocol, providing a set of network tools such as [Xray-core](https://github.com/XTLS/Xray-core) and [REALITY](https://github.com/XTLS/REALITY).
 
+## Local Verification
+
+This fork targets Go 1.26+ and must be tested with `GOEXPERIMENT=jsonv2`.
+Some routing tests also require asset files such as `geoip.dat`; put them under `resources/` or pass another asset directory:
+
+```bash
+make test
+make test ASSET_DIR=/path/to/assets
+```
+
 [README](https://github.com/XTLS/Xray-core#readme) is open, so feel free to submit your project [here](https://github.com/XTLS/Xray-core/pulls).
 
 ## Sponsors
