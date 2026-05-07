@@ -34,8 +34,8 @@ func (c *HTTPServerConfig) Build() (proto.Message, error) {
 		UserLevel:        c.UserLevel,
 	}
 
-	if len(c.Accounts) > 0 {
-		config.Accounts = make(map[string]string)
+	if c.Accounts != nil {
+		config.Accounts = make(map[string]string, len(c.Accounts))
 		for _, account := range c.Accounts {
 			config.Accounts[account.Username] = account.Password
 		}

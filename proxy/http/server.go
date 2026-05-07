@@ -31,6 +31,7 @@ import (
 type Server struct {
 	config        *ServerConfig
 	policyManager policy.Manager
+	users         *userStore
 }
 
 // NewServer creates a new HTTP inbound handler.
@@ -39,6 +40,7 @@ func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
 	s := &Server{
 		config:        config,
 		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
+		users:         newUserStore(config.Accounts, config.UserLevel),
 	}
 
 	return s, nil
@@ -122,13 +124,14 @@ Start:
 		return trace
 	}
 
-	if len(s.config.Accounts) > 0 {
+	if s.users.RequireAuth() {
 		user, pass, ok := parseBasicAuth(request.Header.Get("Proxy-Authorization"))
-		if !ok || !s.config.HasAccount(user, pass) {
+		memoryUser, authenticated := s.users.Authenticate(user, pass)
+		if !ok || !authenticated {
 			return common.Error2(conn.Write([]byte("HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"proxy\"\r\n\r\n")))
 		}
 		if inbound != nil {
-			inbound.User.Email = user
+			inbound.User = memoryUser
 		}
 	}
 

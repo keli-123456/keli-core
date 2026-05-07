@@ -31,6 +31,7 @@ type Server struct {
 	cone          bool
 	udpFilter     *UDPFilter
 	httpServer    *http.Server
+	users         *userStore
 }
 
 // NewServer creates a new Server object.
@@ -40,12 +41,16 @@ func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
 		config:        config,
 		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
 		cone:          ctx.Value("cone").(bool),
+		users:         newUserStore(config.Accounts, config.UserLevel),
 	}
 	httpConfig := &http.ServerConfig{
 		UserLevel: config.UserLevel,
 	}
 	if config.AuthType == AuthType_PASSWORD {
 		httpConfig.Accounts = config.Accounts
+		if httpConfig.Accounts == nil {
+			httpConfig.Accounts = map[string]string{}
+		}
 		s.udpFilter = new(UDPFilter) // We only use this when auth is enabled
 	}
 	s.httpServer, _ = http.NewServer(ctx, httpConfig)
@@ -114,6 +119,7 @@ func (s *Server) processTCP(ctx context.Context, conn stat.Connection, dispatche
 
 	svrSession := &ServerSession{
 		config:       s.config,
+		users:        s.users,
 		address:      inbound.Gateway.Address,
 		port:         inbound.Gateway.Port,
 		localAddress: net.IPAddress(conn.LocalAddr().(*net.TCPAddr).IP),
@@ -139,7 +145,7 @@ func (s *Server) processTCP(ctx context.Context, conn stat.Connection, dispatche
 		return errors.New("failed to read request").Base(err)
 	}
 	if request.User != nil {
-		inbound.User.Email = request.User.Email
+		inbound.User = request.User
 	}
 
 	if err := conn.SetReadDeadline(time.Time{}); err != nil {
